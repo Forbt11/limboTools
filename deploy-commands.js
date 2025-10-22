@@ -5,6 +5,7 @@ const path = require('path');
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
+const MAIN_SERVER_ID = process.env.MAIN_SERVER_ID;
 
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
@@ -20,19 +21,18 @@ for (const file of commandFiles) {
     } else {
       guildCommands.push(command.data.toJSON());
     }
+    console.log(`✅ Loaded command: ${command.data.name}`);
+  } else {
+    console.warn(`[⚠️] Command ${file} missing "data" or "execute"`);
   }
 }
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
-client.once('ready', async () => {
+(async () => {
   try {
-    console.log('🌍 Fetching current global commands...');
+    // Delete old global commands not in allowed list
     const existingGlobal = await rest.get(Routes.applicationCommands(CLIENT_ID));
-
-    // Delete old global commands that shouldn't be global
     for (const cmd of existingGlobal) {
       if (!['globalban', 'unban', 'banlist'].includes(cmd.name)) {
         await rest.delete(Routes.applicationCommand(CLIENT_ID, cmd.id));
@@ -40,24 +40,27 @@ client.once('ready', async () => {
       }
     }
 
-    // Deploy new global commands
-    console.log('🌍 Deploying global commands...');
+    // Deploy global commands
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: globalCommands });
-    console.log('⚡ Global commands deployed (may take up to 1 hour to propagate).');
+    console.log('⚡ Global commands deployed (may take ~1 hour to propagate).');
 
-    // Deploy guild commands to all guilds
-    console.log('🌍 Deploying guild commands to all guilds...');
-    const allGuilds = await client.guilds.fetch();
-    for (const [guildId] of allGuilds) {
-      await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body: guildCommands });
-      console.log(`✅ Deployed guild commands to guild ID: ${guildId}`);
-    }
+    // Deploy guild commands to all servers instantly
+    console.log('🌐 Fetching all guilds for guild command deployment...');
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    
+    client.once('ready', async () => {
+      const fetchedGuilds = await client.guilds.fetch();
+      for (const [guildId, guild] of fetchedGuilds) {
+        await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body: guildCommands });
+        console.log(`✅ Guild commands deployed to: ${guild.name} (${guildId})`);
+      }
+      client.destroy();
+      console.log('✅ All guild commands deployed instantly.');
+    });
 
-    console.log('✅ All commands deployed successfully.');
-    client.destroy();
+    await client.login(TOKEN);
+
   } catch (err) {
-    console.error('❌ Deployment failed:', err);
+    console.error('❌ Failed to deploy commands:', err);
   }
-});
-
-client.login(TOKEN);
+})();
