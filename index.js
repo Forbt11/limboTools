@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 
+// Create the Discord client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -12,7 +13,7 @@ const client = new Client({
   ]
 });
 
-// Commands
+// Load commands
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
@@ -25,36 +26,39 @@ for (const file of commandFiles) {
   }
 }
 
-// Roles
+// Load response.js to handle message interactions
+require('./commands/response.js')(client);
+
+// Role & permission setup
 const MAIN_SERVER_ID = process.env.MAIN_SERVER_ID;
 const ALL_ALLOWED_ROLE_IDS = process.env.ALLOWED_ROLE_IDS.split(','); 
-const LOCKED_GLOBALBAN_ROLES = process.env.GLOBALBAN_ROLE_IDS.split(','); // from .env
+const LOCKED_GLOBALBAN_ROLES = process.env.GLOBALBAN_ROLE_IDS.split(',');
 
+// Handle slash commands
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
-  // Locked command check (any command with locked: true)
-  // For locked commands (only certain roles from main server)
-if (command.locked) {
-  const mainGuild = await client.guilds.fetch(MAIN_SERVER_ID);
-  const memberInMain = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
-  const hasRole = memberInMain?.roles.cache.some(r => ALL_ALLOWED_ROLE_IDS.includes(r.id));
-  if (!hasRole)
-    return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
-}
+  // Locked command check
+  if (command.locked) {
+    const mainGuild = await client.guilds.fetch(MAIN_SERVER_ID);
+    const memberInMain = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
+    const hasRole = memberInMain?.roles.cache.some(r => ALL_ALLOWED_ROLE_IDS.includes(r.id));
+    if (!hasRole)
+      return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+  }
 
-// Extra check for globalban (restricted roles only)
-if (command.data.name === 'globalban') {
-  const mainGuild = await client.guilds.fetch(MAIN_SERVER_ID);
-  const memberInMain = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
-  const canUseGlobalBan = memberInMain?.roles.cache.some(r => LOCKED_GLOBALBAN_ROLES.includes(r.id));
-  if (!canUseGlobalBan)
-    return interaction.reply({ content: 'Only Senior Mods+ can use GlobalBan.', ephemeral: true });
-}
+  // GlobalBan permission check
+  if (command.data.name === 'globalban') {
+    const mainGuild = await client.guilds.fetch(MAIN_SERVER_ID);
+    const memberInMain = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
+    const canUseGlobalBan = memberInMain?.roles.cache.some(r => LOCKED_GLOBALBAN_ROLES.includes(r.id));
+    if (!canUseGlobalBan)
+      return interaction.reply({ content: 'Only Senior Mods+ can use GlobalBan.', ephemeral: true });
+  }
 
-
+  // Execute command
   try {
     await command.execute(interaction, client);
   } catch (err) {
@@ -63,6 +67,7 @@ if (command.data.name === 'globalban') {
   }
 });
 
+// Start the bot
 console.log("Starting bot...");
 client.login(process.env.TOKEN)
   .then(() => console.log("Bot logged in successfully!"))
