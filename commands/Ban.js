@@ -2,7 +2,7 @@ const { SlashCommandBuilder, PermissionsBitField, EmbedBuilder } = require('disc
 
 module.exports = {
   locked: true, // Only allowed roles from .env can use this command
-   global: true,
+  global: false, // Single-server command
   data: new SlashCommandBuilder()
     .setName('ban')
     .setDescription('Ban a user from this server.')
@@ -19,19 +19,32 @@ module.exports = {
     const target = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
-    // Only allow members with Administrator permission
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return interaction.reply({ content: 'You need Administrator permissions to use this command.', ephemeral: true });
+    // Permission check
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
+      return interaction.reply({
+        content: 'You need Ban Members permissions to use this command.',
+        ephemeral: true
+      });
     }
 
-    // Fetch the member in this server
+    // Fetch member in this server
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
-    if (!member) return interaction.reply({ content: 'User not found in this server.', ephemeral: true });
-    if (!member.bannable) return interaction.reply({ content: 'I cannot ban this user (role hierarchy or permissions).', ephemeral: true });
+    if (!member) {
+      return interaction.reply({
+        content: 'User not found in this server.',
+        ephemeral: true
+      });
+    }
+    if (!member.bannable) {
+      return interaction.reply({
+        content: 'I cannot ban this user (role hierarchy or permissions).',
+        ephemeral: true
+      });
+    }
 
     await member.ban({ reason });
 
-    // Embed version
+    // Embed reply
     const embed = new EmbedBuilder()
       .setTitle('User Banned')
       .setColor('Red')
@@ -40,6 +53,6 @@ module.exports = {
       .setFooter({ text: `By: ${interaction.user.tag}` })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: false });
+    await interaction.reply({ embeds: [embed] });
   }
 };

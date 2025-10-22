@@ -14,8 +14,8 @@ function saveBans() {
 }
 
 module.exports = {
-  locked: true, // handled by index.js
-   global: true,
+  locked: true,
+  global: true,
   data: new SlashCommandBuilder()
     .setName('globalban')
     .setDescription('Ban a user across all servers the bot is in.')
@@ -28,7 +28,8 @@ module.exports = {
         .setDescription('Reason for the ban')
         .setRequired(false)),
 
-  async execute(interaction, client) {
+  async execute(interaction) {
+    const client = interaction.client; // Use this instead of passing client manually
     const target = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
@@ -55,9 +56,9 @@ module.exports = {
           username: target.tag
         });
 
-        summary.push(`✅ **${g.name}** — Reason: ${reason}`);
+        summary.push(`**${g.name}** — Reason: ${reason}`);
       } catch {
-        summary.push(`❌ **${g.name}**`);
+        summary.push(`**${g.name}**`);
       }
     }
 
@@ -67,12 +68,14 @@ module.exports = {
       .setTitle(`Global Ban Attempted`)
       .setDescription(`**${target.tag}**\nID ${target.id}`)
       .setColor('Red')
-      .addFields({ name: 'Banned In', value: `**${successfulBans} server(s)**` })
-      .addFields({ name: 'Details', value: summary.join('\n') })
+      .addFields(
+        { name: 'Banned In', value: `**${successfulBans} server(s)**` },
+        { name: 'Details', value: summary.join('\n') }
+      )
       .setThumbnail(target.displayAvatarURL({ dynamic: true, size: 1024 }))
       .setFooter({ text: `By: ${interaction.user.tag}` })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: false });
+    await interaction.reply({ embeds: [embed] });
   }
 };

@@ -14,8 +14,8 @@ function saveBans() {
 }
 
 module.exports = {
-locked: true,
- global: true,
+  locked: true,
+  global: true,
   data: new SlashCommandBuilder()
     .setName('unban')
     .setDescription('Unban a user globally.')
@@ -28,25 +28,27 @@ locked: true,
         .setDescription('Reason for unban')
         .setRequired(false)),
 
-  async execute(interaction, client) {
-    const target = interaction.options.getUser('target'); // <-- get the user here
+  async execute(interaction) {
+    const target = interaction.options.getUser('target'); 
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
     // Remove global bans from bans.json
-    delete recordedBans[target.id];
-    saveBans();
+    if (recordedBans[target.id]) {
+      delete recordedBans[target.id];
+      saveBans();
+    }
 
-    // Create embed
+    // Embed reply
     const embed = new EmbedBuilder()
       .setTitle(`User Unbanned`)
       .setColor('Green')
-      .setDescription(`${target.tag} has been unbanned.`) // <-- use target here
+      .setDescription(`${target.tag} has been unbanned globally.`)
       .addFields(
         { name: 'Reason', value: reason },
         { name: 'Unbanned by', value: interaction.user.tag }
       )
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: false });
+    await interaction.reply({ embeds: [embed] });
   }
 };
