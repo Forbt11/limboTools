@@ -29,36 +29,37 @@ module.exports = {
         .setRequired(false)),
 
   async execute(interaction) {
-    const client = interaction.client; // Use this instead of passing client manually
+    const client = interaction.client;
     const target = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
-    const guilds = client.guilds.cache.map(g => g);
+    // Fetch all guilds the bot is in
+    const fetchedGuilds = await client.guilds.fetch();
     let successfulBans = 0;
     const summary = [];
 
-    for (const g of guilds) {
+    for (const [guildId, guild] of fetchedGuilds) {
       try {
-        const me = g.members.cache.get(client.user.id) || await g.members.fetch(client.user.id).catch(() => null);
+        const me = await guild.members.fetch(client.user.id).catch(() => null);
         if (!me) continue;
         if (!me.permissions.has('BanMembers')) continue;
-        if (g.ownerId === target.id) continue;
+        if (guild.ownerId === target.id) continue;
 
-        await g.members.ban(target.id, { reason }).catch(() => null);
+        await guild.members.ban(target.id, { reason }).catch(() => null);
         successfulBans++;
 
         recordedBans[target.id] = recordedBans[target.id] || [];
         recordedBans[target.id].push({
-          guild: g.id,
+          guild: guildId,
           time: new Date().toISOString(),
           reason,
           by: interaction.user.id,
           username: target.tag
         });
 
-        summary.push(`**${g.name}** — Reason: ${reason}`);
+        summary.push(`✅ **${guild.name}** — Reason: ${reason}`);
       } catch {
-        summary.push(`**${g.name}**`);
+        summary.push(`❌ **${guild.name}**`);
       }
     }
 
@@ -66,7 +67,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle(`Global Ban Attempted`)
-      .setDescription(`**${target.tag}**\nID ${target.id}`)
+      .setDescription(`**${target.tag}**\nID: ${target.id}`)
       .setColor('Red')
       .addFields(
         { name: 'Banned In', value: `**${successfulBans} server(s)**` },
