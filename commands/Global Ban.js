@@ -33,7 +33,7 @@ module.exports = {
     const target = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
-    // Fetch all guilds the bot is in
+    // Fetch all guilds
     const fetchedGuilds = await client.guilds.fetch();
     let successfulBans = 0;
     const summary = [];
@@ -57,21 +57,25 @@ module.exports = {
           username: target.tag
         });
 
-        summary.push(`✅ **${guild.name}** — Reason: ${reason}`);
+        summary.push(`✅ ${guild.name}`);
       } catch {
-        summary.push(`❌ **${guild.name}**`);
+        summary.push(`❌ ${guild.name}`);
       }
     }
 
     saveBans();
 
+    // Create safe summary string (truncate to 1024 chars max)
+    let summaryText = summary.join('\n');
+    if (summaryText.length > 1020) summaryText = summaryText.slice(0, 1017) + '...';
+
     const embed = new EmbedBuilder()
       .setTitle(`Global Ban Attempted`)
-      .setDescription(`**${target.tag}**\nID: ${target.id}`)
+      .setDescription(`**${target.tag}**\nID: ${target.id}\n**Reason:** ${reason}`)
       .setColor('Red')
       .addFields(
         { name: 'Banned In', value: `**${successfulBans} server(s)**` },
-        { name: 'Details', value: summary.join('\n') }
+        { name: 'Details', value: summaryText }
       )
       .setThumbnail(target.displayAvatarURL({ dynamic: true, size: 1024 }))
       .setFooter({ text: `By: ${interaction.user.tag}` })
