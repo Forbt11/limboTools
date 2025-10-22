@@ -2,6 +2,7 @@ const { SlashCommandBuilder, PermissionsBitField, EmbedBuilder } = require('disc
 
 module.exports = {
   locked: true, // Only allowed roles from .env can use this command
+   global: true,
   data: new SlashCommandBuilder()
     .setName('ban')
     .setDescription('Ban a user from this server.')

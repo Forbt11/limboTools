@@ -15,6 +15,7 @@ function saveBans() {
 
 module.exports = {
   locked: true, // handled by index.js
+   global: true,
   data: new SlashCommandBuilder()
     .setName('globalban')
     .setDescription('Ban a user across all servers the bot is in.')

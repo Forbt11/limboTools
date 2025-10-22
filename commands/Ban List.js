@@ -12,6 +12,7 @@ if (fs.existsSync(bansFile)) {
 
 module.exports = {
   locked: true,
+   global: true,
   data: new SlashCommandBuilder()
     .setName('banlist')
     .setDescription('Show the list of globally banned users'),

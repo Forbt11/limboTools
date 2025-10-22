@@ -15,6 +15,7 @@ function saveBans() {
 
 module.exports = {
 locked: true,
+ global: true,
   data: new SlashCommandBuilder()
     .setName('unban')
     .setDescription('Unban a user globally.')
