@@ -12,7 +12,7 @@ if (fs.existsSync(bansFile)) {
 
 module.exports = {
   locked: true,
-   global: true,
+   global: false,
   data: new SlashCommandBuilder()
     .setName('userinfo')
     .setDescription('Displays information about a user')

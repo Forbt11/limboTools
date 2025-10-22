@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { REST, Routes } = require('discord.js');
+const { REST, Routes, Client, GatewayIntentBits } = require('discord.js');
 
 const CLIENT_ID = process.env.CLIENT_ID;
 const TOKEN = process.env.TOKEN;
@@ -11,45 +11,61 @@ const MAIN_SERVER_ID = process.env.MAIN_SERVER_ID;
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
-const commands = [];
+const globalCommands = [];
+const guildCommands = [];
 
 for (const file of commandFiles) {
-    const command = require(path.join(commandsPath, file));
-    if ('data' in command && 'execute' in command) {
-        commands.push(command);
-        console.log(`✅ Loaded command: ${command.data.name}`);
+  const command = require(path.join(commandsPath, file));
+  if ('data' in command && 'execute' in command) {
+    // Only these 3 commands are global
+    if (['globalban', 'unban', 'banlist'].includes(command.data.name)) {
+      globalCommands.push(command.data.toJSON());
     } else {
-        console.warn(`[⚠️] Command ${file} is missing "data" or "execute"`);
+      guildCommands.push(command.data.toJSON());
     }
+    console.log(`✅ Loaded command: ${command.data.name}`);
+  } else {
+    console.warn(`[⚠️] Command ${file} is missing "data" or "execute"`);
+  }
 }
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 (async () => {
-    try {
-        // 1️⃣ Deploy only global commands
-        const globalCommands = commands
-            .filter(cmd => cmd.global) // Only commands marked global: true
-            .map(cmd => cmd.data.toJSON());
+  try {
+    console.log(`🌍 Deploying global commands...`);
+    await rest.put(
+      Routes.applicationCommands(CLIENT_ID),
+      { body: globalCommands }
+    );
+    console.log(`⚡ Global commands deployed.`);
 
-        if (globalCommands.length > 0) {
-            await rest.put(Routes.applicationCommands(CLIENT_ID), { body: globalCommands });
-            console.log(`🌍 Global commands deployed: ${globalCommands.map(c => c.name).join(', ')}`);
-        }
+    console.log(`🌍 Deploying guild commands to main server...`);
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, MAIN_SERVER_ID),
+      { body: guildCommands }
+    );
+    console.log(`⚡ Guild commands deployed to main server.`);
 
-        // 2️⃣ Deploy the rest to MAIN_SERVER only
-        const guildCommands = commands
-            .filter(cmd => !cmd.global)
-            .map(cmd => cmd.data.toJSON());
+    // If you want guild commands in every server the bot is in:
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('ready', async () => {
+      client.guilds.cache.forEach(async guild => {
+        if (guild.id === MAIN_SERVER_ID) return; // Already deployed
+        await rest.put(
+          Routes.applicationGuildCommands(CLIENT_ID, guild.id),
+          { body: guildCommands }
+        );
+        console.log(`✅ Guild commands deployed to ${guild.name} (${guild.id})`);
+      });
 
-        if (guildCommands.length > 0) {
-            await rest.put(Routes.applicationGuildCommands(CLIENT_ID, MAIN_SERVER_ID), { body: guildCommands });
-            console.log(`⚡ Guild-only commands deployed to MAIN_SERVER (${MAIN_SERVER_ID}): ${guildCommands.map(c => c.name).join(', ')}`);
-        }
+      client.destroy(); // Close client after deployment
+      console.log('✅ Deployment finished.');
+    });
 
-        console.log('✅ All commands deployment finished!');
-    } catch (error) {
-        console.error('❌ Failed to deploy commands:');
-        console.error(error);
-    }
+    await client.login(TOKEN);
+  } catch (error) {
+    console.error('❌ Failed to deploy commands:');
+    console.error(error);
+  }
 })();
