@@ -12,31 +12,35 @@ if (fs.existsSync(bansFile)) {
 
 module.exports = {
   locked: true,
-   global: true,
+  global: true,
   data: new SlashCommandBuilder()
     .setName('banlist')
     .setDescription('Show the list of globally banned users'),
 
   async execute(interaction) {
-    // ✅ Permission check — only users with allowed roles can use locked commands
     const MAIN_SERVER_ID = process.env.MAIN_SERVER_ID;
-    const ALLOWED_ROLE_IDS = process.env.ALLOWED_ROLE_IDS.split(',');
+    const ALLOWED_ROLE_IDS = process.env.ALLOWED_ROLE_IDS.split(','); // Roles allowed to use this command
+    const BYPASS_USER_IDS = [process.env.MY_ID]; // Users who can bypass the role check
 
-    const mainGuild = await interaction.client.guilds.fetch(MAIN_SERVER_ID);
-    const member = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
-    const hasRole = member?.roles.cache.some(r => ALLOWED_ROLE_IDS.includes(r.id));
+    // Allow bypass users anywhere
+    if (!BYPASS_USER_IDS.includes(interaction.user.id)) {
+      // Check roles in the main server
+      const mainGuild = await interaction.client.guilds.fetch(MAIN_SERVER_ID);
+      const member = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
+      const hasRole = member?.roles.cache.some(r => ALLOWED_ROLE_IDS.includes(r.id));
 
-    if (!hasRole) {
-      return interaction.reply({
-        content: 'You do not have permission to use this command.',
-        flags: 64 // replaces deprecated `ephemeral: true`
-      });
+      if (!hasRole) {
+        return interaction.reply({
+          content: 'You do not have permission to use this command.',
+          ephemeral: true
+        });
+      }
     }
 
     const embed = new EmbedBuilder()
       .setTitle('Global Ban List')
       .setColor('Red')
-      .setDescription('Here are all users currently globally banned.');
+      .setDescription('Users Globally Banned:');
 
     if (Object.keys(recordedBans).length === 0) {
       embed.addFields({ name: 'No Bans Found', value: 'The ban list is currently empty.' });
