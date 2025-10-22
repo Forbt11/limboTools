@@ -63,4 +63,9 @@ if (command.data.name === 'globalban') {
   }
 });
 
-client.login(process.env.TOKEN);
+client.login(process.env.TOKEN)
+  .then(() => console.log("Bot logged in successfully!"))
+  .catch(err => {
+    console.error("Failed to log in:", err);
+    process.exit(1);
+  });
