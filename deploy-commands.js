@@ -41,18 +41,20 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
     }
 
     // Deploy global commands
+    console.log('🌍 Deploying global commands...');
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: globalCommands });
     console.log('⚡ Global commands deployed (may take ~1 hour to propagate).');
 
     // Deploy guild commands to all servers instantly
     console.log('🌐 Fetching all guilds for guild command deployment...');
     const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-    
+
     client.once('ready', async () => {
       const fetchedGuilds = await client.guilds.fetch();
-      for (const [guildId, guild] of fetchedGuilds) {
+      for (const [guildId] of fetchedGuilds) {
+        const fullGuild = await client.guilds.fetch(guildId); // get full guild info
         await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body: guildCommands });
-        console.log(`✅ Guild commands deployed to: ${guild.name} (${guildId})`);
+        console.log(`✅ Guild commands deployed to: ${fullGuild.name} (${guildId})`);
       }
       client.destroy();
       console.log('✅ All guild commands deployed instantly.');
