@@ -26,9 +26,6 @@ for (const file of commandFiles) {
   }
 }
 
-// Load response.js to handle message interactions
-require('./commands/response.js')(client);
-
 // Role & permission setup
 const MAIN_SERVER_ID = process.env.MAIN_SERVER_ID;
 const ALL_ALLOWED_ROLE_IDS = process.env.ALLOWED_ROLE_IDS.split(','); 
@@ -40,13 +37,22 @@ client.on('interactionCreate', async interaction => {
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
-  // Locked command check
+  // Permission check for locked commands
   if (command.locked) {
-    const mainGuild = await client.guilds.fetch(MAIN_SERVER_ID);
-    const memberInMain = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
-    const hasRole = memberInMain?.roles.cache.some(r => ALL_ALLOWED_ROLE_IDS.includes(r.id));
-    if (!hasRole)
-      return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+    if (command.global) {
+      // Global commands: check roles in MAIN_SERVER_ID
+      const mainGuild = await client.guilds.fetch(MAIN_SERVER_ID);
+      const memberInMain = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
+      const hasRole = memberInMain?.roles.cache.some(r => ALL_ALLOWED_ROLE_IDS.includes(r.id));
+      if (!hasRole)
+        return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+    } else {
+      // Guild-only commands: check roles in the current guild
+      const memberInGuild = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+      const hasRole = memberInGuild?.roles.cache.some(r => ALL_ALLOWED_ROLE_IDS.includes(r.id));
+      if (!hasRole)
+        return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+    }
   }
 
   // GlobalBan permission check
@@ -63,9 +69,12 @@ client.on('interactionCreate', async interaction => {
     await command.execute(interaction, client);
   } catch (err) {
     console.error(err);
-    await interaction.reply({ content: 'There was an error executing that command.', ephemeral: true });
+    if (!interaction.replied) {
+      await interaction.reply({ content: 'There was an error executing that command.', ephemeral: true });
+    }
   }
 });
+
 
 // Start the bot
 console.log("Starting bot...");
