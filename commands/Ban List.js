@@ -10,7 +10,7 @@ module.exports = {
     .setDescription('Show the list of globally banned users'),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true }); // prevents timeout
+    await interaction.deferReply({ ephemeral: false }); // prevents timeout
 
     const MAIN_SERVER_ID = process.env.MAIN_SERVER_ID;
     const ALLOWED_ROLE_IDS = process.env.ALLOWED_ROLE_IDS.split(',');
