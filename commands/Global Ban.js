@@ -37,6 +37,9 @@ module.exports = {
     const target = interaction.options.getUser('target');
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
+    // ✅ Defer the reply to avoid "Unknown interaction" errors
+    await interaction.deferReply({ ephemeral: true });
+
     // ✅ Check if executor has permission
     const allowedRoles = process.env.GLOBALBAN_ROLE_IDS.split(',');
     const mainGuild = await client.guilds.fetch(process.env.MAIN_SERVER_ID);
@@ -44,15 +47,13 @@ module.exports = {
 
     if (!executor?.roles.cache.some(r => allowedRoles.includes(r.id))) {
       console.log(`[GlobalBan] ${interaction.user.tag} tried to use GlobalBan without permission`);
-      return interaction.reply({
-        content: 'Only Senior Mods+ can use GlobalBan.',
-        ephemeral: true
+      return interaction.editReply({
+        content: 'Only Senior Mods+ can use GlobalBan.'
       });
     }
 
     console.log(`[GlobalBan] ${interaction.user.tag} is attempting to globally ban ${target.tag} (${target.id})`);
 
-    // Iterate all guilds the bot is in
     const guilds = client.guilds.cache;
     let successfulBans = 0;
     const summary = [];
@@ -87,7 +88,6 @@ module.exports = {
           continue;
         }
 
-        // Ban by ID (works even if target is not in guild)
         await guild.members.ban(target.id, { reason }).catch(err => {
           summary.push(`❌ ${guild.name} (${err.message})`);
           console.error(`[GlobalBan] Failed to ban ${target.tag} in ${guild.name}:`, err.message);
@@ -113,12 +113,12 @@ module.exports = {
       }
     }
 
-    // Log the final summary to console
+    // Log final summary
     console.log(`[GlobalBan] Attempted global ban of ${target.tag} (${target.id})`);
     console.log(`[GlobalBan] Successful bans: ${successfulBans}/${guilds.size}`);
     console.log(`[GlobalBan] Guild details:\n${summary.join('\n')}`);
 
-    // Build embed for Discord
+    // Build the embed for Discord
     let summaryText = summary.join('\n');
     if (summaryText.length > 1020) summaryText = summaryText.slice(0, 1017) + '...';
 
@@ -134,6 +134,7 @@ module.exports = {
       .setFooter({ text: `By: ${interaction.user.tag}` })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    // ✅ Send the final embed
+    await interaction.editReply({ embeds: [embed] });
   }
 };
