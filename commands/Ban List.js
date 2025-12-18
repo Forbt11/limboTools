@@ -7,7 +7,12 @@ const bansFile = path.join(__dirname, '../bans.json');
 // Load global bans
 let recordedBans = {};
 if (fs.existsSync(bansFile)) {
-  recordedBans = JSON.parse(fs.readFileSync(bansFile, 'utf8'));
+  try {
+    recordedBans = JSON.parse(fs.readFileSync(bansFile, 'utf8'));
+  } catch (err) {
+    console.error('Failed to parse bans.json:', err);
+    recordedBans = {};
+  }
 }
 
 module.exports = {
@@ -30,29 +35,41 @@ module.exports = {
       if (!hasRole) {
         return interaction.reply({
           content: 'You do not have permission to use this command.',
-          flags: 64 // public message
+          ephemeral: true
         });
       }
 
       // Build the embed
       const embed = new EmbedBuilder()
-        .setTitle('Global Ban List')
-        .setColor('Red')
-        .setDescription('Here are all users currently globally banned.');
+        .setTitle('🌐 Global Ban List')
+        .setColor('Red');
 
       if (Object.keys(recordedBans).length === 0) {
-        embed.addFields({ name: 'No Bans Found', value: 'The ban list is currently empty.' });
+        embed.setDescription('The ban list is currently empty.');
       } else {
-        for (const [userId, bans] of Object.entries(recordedBans)) {
+        embed.setDescription('Here are all users currently globally banned:');
+        // Sort users by latest ban date (optional)
+        const sortedBans = Object.entries(recordedBans).sort(([, bansA], [, bansB]) => {
+          const lastA = new Date(bansA[bansA.length - 1].time);
+          const lastB = new Date(bansB[bansB.length - 1].time);
+          return lastB - lastA;
+        });
+
+        for (const [userId, bans] of sortedBans) {
           const lastBan = bans[bans.length - 1];
           embed.addFields({
             name: lastBan.username || `User ID: ${userId}`,
-            value: `**Reason:** ${lastBan.reason}\n**Type:** Global`
+            value: `**Reason:** ${lastBan.reason}\n**Server Count:** ${bans.length}\n**Last Ban:** <t:${Math.floor(new Date(lastBan.time).getTime() / 1000)}:R>`,
           });
         }
       }
 
-      // Reply once with the embed
+      // Discord embed limits: 25 fields max, truncate if needed
+      if (embed.data.fields.length > 25) {
+        embed.data.fields = embed.data.fields.slice(0, 25);
+        embed.addFields({ name: '...', value: 'Additional bans not shown due to Discord embed limits.' });
+      }
+
       await interaction.reply({ embeds: [embed] });
 
     } catch (err) {
@@ -60,7 +77,7 @@ module.exports = {
       if (!interaction.replied) {
         await interaction.reply({
           content: 'An error occurred while fetching the ban list.',
-          flags: 64
+          ephemeral: true
         });
       }
     }
