@@ -30,6 +30,7 @@ for (const file of commandFiles) {
 const MAIN_SERVER_ID = process.env.MAIN_SERVER_ID;
 const ALL_ALLOWED_ROLE_IDS = process.env.ALLOWED_ROLE_IDS.split(','); 
 const LOCKED_GLOBALBAN_ROLES = process.env.GLOBALBAN_ROLE_IDS.split(',');
+const ALLOWED_SERVERS = process.env.ALLOWED_SERVERS.split(',');
 
 // Handle slash commands
 client.on('interactionCreate', async interaction => {
@@ -75,6 +76,28 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
+client.on('guildCreate', guild => {
+  if (!ALLOWED_SERVERS.includes(guild.id)) {
+    console.log(`[Security] Unauthorized server detected: ${guild.name} (${guild.id}). Leaving...`);
+    guild.leave().then(() => {
+      console.log(`[Security] Successfully left ${guild.name} (${guild.id})`);
+    }).catch(err => {
+      console.error(`[Security] Failed to leave ${guild.name} (${guild.id}):`, err);
+    });
+  } else {
+    console.log(`[Security] Joined allowed server: ${guild.name} (${guild.id})`);
+  }
+});
+
+client.once('ready', async () => {
+  console.log(`Logged in as ${client.user.tag}. Checking servers...`);
+  for (const [guildId, guild] of client.guilds.cache) {
+    if (!ALLOWED_SERVERS.includes(guildId)) {
+      console.log(`[Security] Leaving unauthorized server: ${guild.name} (${guildId})`);
+      await guild.leave().catch(err => console.error(`[Security] Failed to leave ${guild.name}:`, err));
+    }
+  }
+});
 
 // Start the bot
 console.log("Starting bot...");
